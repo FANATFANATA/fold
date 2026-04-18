@@ -4,6 +4,7 @@ import subprocess
 import asyncio
 import re
 import httpx
+import base64
 from telegram import Update, constants
 from telegram.ext import (
     ApplicationBuilder,
@@ -26,7 +27,7 @@ logging.basicConfig(
 
 
 def escape_md(text):
-    return re.sub(f'([{re.escape(r"_*[]()~`>#+-=|{}.!")}])', r"\\\1", text)
+    return re.sub(rf'([{re.escape(r"_*[]()~`>#+-=|{}.!")}])', r"\\\1", text)
 
 
 async def get_sys_info():
@@ -56,14 +57,14 @@ async def get_sys_info():
                 batt_status = f.read().strip()
 
         return (
-            f"🖥 *System Status*\n\n"
-            f"📈 *Load Avg:* `{cpu_load}`\n"
-            f"📟 *RAM:* `{mem_pct}%` \(`{mem_used}/{mem_total}MB`\)\n"
-            f"🔋 *Battery:* `{batt_cap}` \(`{batt_temp}`, `{batt_status}`\)\n"
-            f"⏱ *Uptime:* `{uptime}`"
+            rf"🖥 *System Status*" + "\n\n"
+            rf"📈 *Load Avg:* `{cpu_load}`" + "\n"
+            rf"📟 *RAM:* `{mem_pct}%` \(`{mem_used}/{mem_total}MB`\)" + "\n"
+            rf"🔋 *Battery:* `{batt_cap}` \(`{batt_temp}`, `{batt_status}`\)" + "\n"
+            rf"⏱ *Uptime:* `{uptime}`"
         )
     except Exception as e:
-        return f"❌ Ошибка сбора данных: {escape_md(str(e))}"
+        return rf"❌ Ошибка сбора данных: {escape_md(str(e))}"
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -118,8 +119,6 @@ async def ai_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or update.message.caption or ""
     images = []
     if update.message.photo:
-        import base64
-
         file = await update.message.photo[-1].get_file()
         img_bytes = await file.download_as_bytearray()
         images.append(base64.b64encode(img_bytes).decode("utf-8"))
@@ -127,7 +126,7 @@ async def ai_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_msg = await update.message.reply_text(f"🤔 Думаю ({user_model})...")
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             payload = {
                 "model": user_model,
                 "messages": [{"role": "user", "content": text, "images": images}],
@@ -152,7 +151,7 @@ async def list_models(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             text = "📦 *Доступные модели:*\n\n"
             for m in models:
-                text += f"• `{m['name']}` \({m['size'] // 1024**2} MB\)\n"
+                text += rf"• `{m['name']}` \({m['size'] // 1024**2} MB\)" + "\n"
             await update.message.reply_text(
                 text + "\n`/set <название>`", parse_mode=constants.ParseMode.MARKDOWN_V2
             )
